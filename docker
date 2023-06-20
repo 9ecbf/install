@@ -3,6 +3,9 @@
 ID=$(cat /etc/os-release | grep -oP '^ID=\K.*')
 VERSION=$(lsb_release -cs)
 
+[ -z "$DOCKER_HOST" ] && export DOCKER_HOST="/var/run"
+export DOCKER_SOCK="unix://$DOCKER_HOST/docker.sock"
+
 sudo apt-get remove \
     docker \
     docker-engine \
@@ -32,4 +35,15 @@ sudo apt-get install \
 sudo groupadd docker
 sudo usermod -aG docker $USER
 
-echo "%docker ALL=(ALL) NOPASSWD: $(which docker)" | sudo EDITOR="tee -a" visudo
+sudo echo '{
+    "hosts": [
+        "$DOCKER_SOCK"
+    ],
+    "dns": [
+        "8.8.8.8"
+    ],
+    "iptables": false,
+    "default-runtime": "runc"
+}' | /etc/docker/daemon.json
+
+echo "%docker ALL=(ALL) NOPASSWD: $(which dockerd)" | sudo EDITOR="tee -a" visudo
