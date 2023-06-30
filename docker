@@ -1,10 +1,4 @@
-#!/bin/bash
-
-ID=$(cat /etc/os-release | grep -oP '^ID=\K.*')
-VERSION=$(lsb_release -cs)
-
-[ -z "$DOCKER_HOST" ] && export DOCKER_HOST="/var/run"
-export DOCKER_SOCK="unix://$DOCKER_HOST/docker.sock"
+#!/bin/sh
 
 sudo apt-get remove \
     docker \
@@ -19,12 +13,18 @@ sudo apt-get install \
     gnupg \
     lsb-release -y
 
+ID=$(cat /etc/os-release | grep -oP '^ID=\K.*')
+VERSION=$(lsb_release -cs)
+
+[ -z "$DOCKER_HOST" ] && export DOCKER_HOST="/var/run"
+export DOCKER_SOCK="unix://$DOCKER_HOST/docker.sock"
+
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/$ID/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$ID $VERSION stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
-sudo apt-get update
+sudo apt-get update -y
 
 sudo apt-get install \
     docker-ce \
@@ -35,15 +35,12 @@ sudo apt-get install \
 sudo groupadd docker
 sudo usermod -aG docker $USER
 
+DOCKERD_CONFIG=/etc/docker/daemon.json
+[ ! -f "$DOCKERD_CONFIG" ] && sudo touch "$DOCKERD_CONFIG"
 sudo echo '{
     "hosts": [
         "$DOCKER_SOCK"
-    ],
-    "dns": [
-        "8.8.8.8"
-    ],
-    "iptables": false,
-    "default-runtime": "runc"
-}' | /etc/docker/daemon.json
+    ]
+}' | $DOCKER_CONFIG
 
 echo "%docker ALL=(ALL) NOPASSWD: $(which dockerd)" | sudo EDITOR="tee -a" visudo
